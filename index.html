@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title id="page-title">timestack | NantGames</title>
+    <link rel="shortcut icon" href="TemplateData/favicon.ico">
+    <link rel="stylesheet" href="TemplateData/style.css">
+    <script>
+      (function () {
+        const pageTitle = document.getElementById("page-title");
+        const txt = (pageTitle && pageTitle.textContent ? pageTitle.textContent : "").trim();
+        if (txt.length) pageTitle.textContent = txt[0].toUpperCase() + txt.slice(1);
+      })();
+    </script>
+  </head>
+  <body>
+
+    <div id="unity-container" class="unity-desktop" style="height: 100%; width: 100%;">
+      <div id="unity-loading-bar" aria-label="Loading">
+        <div id="unity-progress-bar-empty">
+          <div id="unity-progress-bar-full"></div>
+        </div>
+      </div>
+
+      <canvas id="unity-canvas" tabindex="-1" width="960" height="540"></canvas>
+
+      <div id="unity-overlay" aria-hidden="true">
+        <img src="TemplateData/LoadingScreenTitle.png" alt="" />
+      </div>
+
+      <div id="unity-warning"></div>
+    </div>
+
+    <script>
+      var canvas = document.querySelector("#unity-canvas");
+      const IS_INTERNAL = new URLSearchParams(location.search).has("internal");
+
+      function getRegistrationUser() {
+        return window.registration && window.registration.user ? window.registration.user : null;
+      }
+
+      function getCookie(name) {
+        const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const match = document.cookie.match(new RegExp("(?:^|; )" + escaped + "=([^;]*)"));
+        return match ? decodeURIComponent(match[1]) : null;
+      }
+
+      function getUserData() {
+        const user = getRegistrationUser();
+        return (user && user.data) ? user.data : {};
+      }
+
+      function getSsorID() {
+        const user = getRegistrationUser();
+        // Prefer method if present, fall back to data.consumerId
+        if (user && typeof user.getConsumerId === "function") return user.getConsumerId();
+        return (user && user.data && user.data.consumerId) ? user.data.consumerId : null;
+      }
+
+      function getDisplayName() {
+        const user = getRegistrationUser();
+        return (user && typeof user.getDisplayName === "function") ? user.getDisplayName() : null;
+      }
+
+      function getEmail() {
+        const user = getRegistrationUser();
+        return (user && typeof user.getEmailAddress === "function") ? user.getEmailAddress() : null;
+      }
+
+      function printUser() {
+        const user = getRegistrationUser();
+        if (!user || typeof user.exportUserData !== "function") {
+          console.log("User: (registration.user not available)");
+          return;
+        }
+        console.log("User:", user.exportUserData());
+      }
+
+      function printParentUrl() {
+        console.log("Referrer:", document.referrer || "(none)");
+        // Cross-origin iframes cannot read window.parent.location
+        try {
+          console.log("Parent Location:", window.parent.location.href);
+        } catch (e) {
+          console.log("Parent Location: (blocked by cross-origin)");
+        }
+        console.log("This Location:", window.location.href);
+      }
+
+      function printConfig()
+      {
+        console.log("config:   ", config);
+      }
+
+      function printLoaderUrl()
+      {
+        console.log("loaderUrl:", loaderUrl);
+      }
+
+      // --- Unity banner helper ------------------------------------------------
+      function unityShowBanner(msg, type) {
+        var warningBanner = document.querySelector("#unity-warning");
+        function updateBannerVisibility() {
+          warningBanner.style.display = warningBanner.children.length ? "block" : "none";
+        }
+        var div = document.createElement("div");
+        div.innerHTML = msg;
+        warningBanner.appendChild(div);
+        if (type === "error") div.style = "background: red; padding: 10px;";
+        else {
+          if (type === "warning") div.style = "background: yellow; padding: 10px;";
+          setTimeout(function () {
+            warningBanner.removeChild(div);
+            updateBannerVisibility();
+          }, 5000);
+        }
+        updateBannerVisibility();
+      }
+
+      // --- Unity config -------------------------------------------------------
+      var buildUrl = "Build";
+      var loaderUrl = buildUrl + "/3f923384cf6051d93ae3054b82f01fbc.loader.js";
+      var config = {
+        arguments: [],
+        dataUrl: buildUrl + "/6ff1b22844f913cd30dca4e4de2d969e.data",
+        frameworkUrl: buildUrl + "/4fb5f7da0026effeb429db0e1a6e60ad.framework.js",
+        codeUrl: buildUrl + "/7a56f9387e897fc46c1defe0821785d6.wasm",
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: "LA Times Studios",
+        productName: "timestack",
+        productVersion: "0.0.6",
+        showBanner: unityShowBanner,
+        autoSyncPersistentDataPath: true,
+      };
+
+      // --- Mobile handling ----------------------------------------------------
+      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        var meta = document.createElement("meta");
+        meta.name = "viewport";
+        meta.content = "width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes";
+        document.getElementsByTagName("head")[0].appendChild(meta);
+        document.querySelector("#unity-container").className = "unity-mobile";
+        canvas.className = "unity-mobile";
+      }
+
+
+      document.querySelector("#unity-loading-bar").style.display = "block";
+
+      // --- Loading bar positioning (relative to actual canvas rect) -----------
+      function setLoadingBarPosition() {
+        const bar = document.getElementById("unity-loading-bar");
+        const container = document.getElementById("unity-container");
+        const sizeEl = document.getElementById("unity-canvas");
+        if (!bar || !container || !sizeEl) return;
+
+        const cRect = container.getBoundingClientRect();
+        const sRect = sizeEl.getBoundingClientRect();
+
+        // Center horizontally over the canvas and place ~60% down the canvas
+        const centerX = (sRect.left - cRect.left) + sRect.width / 2;
+        const topY = (sRect.top - cRect.top) + sRect.height * 0.6;
+
+        bar.style.left = `${centerX}px`;
+        bar.style.top = `${topY}px`;
+      }
+
+      // Run after layout (and keep it updated)
+      function scheduleLoadingBarPosition() {
+        requestAnimationFrame(() => {
+          setLoadingBarPosition();
+        });
+      }
+
+      scheduleLoadingBarPosition();
+      if (!window._unityResizeListenerAdded) {
+        window.addEventListener("resize", scheduleLoadingBarPosition);
+        window._unityResizeListenerAdded = true;
+      }
+
+      // --- Load Unity loader --------------------------------------------------
+      var script = document.createElement("script");
+      script.src = loaderUrl;
+      script.onload = () => {
+        createUnityInstance(canvas, config, (progress) => {
+          document.querySelector("#unity-progress-bar-full").style.width = 100 * progress + "%";
+          // Keep it aligned while the page is settling
+          scheduleLoadingBarPosition();
+        })
+          .then((unityInstance) => {
+            document.querySelector("#unity-loading-bar").style.display = "none";
+            document.querySelector("#unity-overlay").style.display = "none";
+          })
+          .catch((message) => {
+            alert(message);
+          });
+      };
+
+      document.body.appendChild(script);
+    </script>
+  </body>
+</html>
