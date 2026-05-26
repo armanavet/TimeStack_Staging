@@ -120,16 +120,16 @@
 
       // --- Unity config -------------------------------------------------------
       var buildUrl = "Build";
-      var loaderUrl = buildUrl + "/3f923384cf6051d93ae3054b82f01fbc.loader.js";
+      var loaderUrl = buildUrl + "/8e886fe33ff0dbfa0ea28bdbf85dd14f.loader.js";
       var config = {
         arguments: [],
-        dataUrl: buildUrl + "/6ff1b22844f913cd30dca4e4de2d969e.data",
-        frameworkUrl: buildUrl + "/4fb5f7da0026effeb429db0e1a6e60ad.framework.js",
-        codeUrl: buildUrl + "/7a56f9387e897fc46c1defe0821785d6.wasm",
+        dataUrl: buildUrl + "/b83dafc793fa35fd02ae029ca3e250f3.data",
+        frameworkUrl: buildUrl + "/f5af3bd75ef5c806b246f76bedc99c96.framework.js",
+        codeUrl: buildUrl + "/e4b041f4a8ef4b8611ae115e244e620c.wasm",
         streamingAssetsUrl: "StreamingAssets",
         companyName: "LA Times Studios",
         productName: "timestack",
-        productVersion: "0.0.6",
+        productVersion: "0.0.12",
         showBanner: unityShowBanner,
         autoSyncPersistentDataPath: true,
       };
@@ -177,6 +177,28 @@
         window.addEventListener("resize", scheduleLoadingBarPosition);
         window._unityResizeListenerAdded = true;
       }
+
+      // --- CCD cache warm-up (runs in parallel with Unity loading) -----------
+      // Pass ?ccd_base_url=https://... in the embed URL to enable preloading.
+      // fetch() populates the browser HTTP cache so UnityWebRequest hits cache.
+      (function () {
+        var ccdBaseUrl = new URLSearchParams(location.search).get("ccd_base_url");
+        if (!ccdBaseUrl) return;
+        if (!ccdBaseUrl.endsWith("/")) ccdBaseUrl += "/";
+        var today = new Date().toISOString().slice(0, 10);
+        fetch(ccdBaseUrl + "TimeStack_IdMap.json")
+          .then(function (r) { return r.json(); })
+          .then(function (puzzles) {
+            var sorted = puzzles
+              .filter(function (p) { return p.date && p.date.slice(0, 10) <= today; })
+              .sort(function (a, b) { return b.date < a.date ? -1 : 1; });
+            if (!sorted.length || !sorted[0].cards) return;
+            sorted[0].cards.forEach(function (id) {
+              fetch(ccdBaseUrl + "card_" + id + ".json").catch(function () {});
+            });
+          })
+          .catch(function () {});
+      })();
 
       // --- Load Unity loader --------------------------------------------------
       var script = document.createElement("script");
