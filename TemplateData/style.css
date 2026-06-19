@@ -21,7 +21,7 @@ body {
 /* image = scale to fit screen (never exceed it) */
 #unity-overlay img {
   display: block;
-  width: min(60vw, 420px);   /* pick your max cap */
+  width: min(30vw, 220px);   /* pick your max cap */
   height: auto;
   max-width: 90vw;           /* safety */
   max-height: 90vh;          /* safety */
@@ -36,7 +36,7 @@ body {
 }
 
 #unity-canvas {
-  background-image: url("LoadingScreenBackground.webp");
+  background-image: url("LoadingScreenBackground.png");
   background-repeat: no-repeat;
   background-position: center center;
   background-size: cover; /* stretch to fill, keep aspect ratio, may crop */
@@ -54,25 +54,27 @@ body {
 
 #unity-loading-bar {
   position: absolute;
-  height: 50px;
+  height: 66px;
   left: 50%;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%) scale(0.5);
+  transform-origin: center;
   display: none;
 }
 
 #unity-progress-bar-empty {
-  width: 218px;
-  height: 50px;
+  width: 534px;
+  height: 66px;
   margin-top: 10px;
-  margin-left: 6.5px;
   background: url("progress-bar-empty-dark.png") no-repeat center;
 }
 
 #unity-progress-bar-full {
   width: 0%;
-  height: 50px;
+  height: 66px;
   margin-top: 10px;
-  background: url("progress-bar-full-dark.png") no-repeat center;
+  background: url("progress-bar-full-dark.png") no-repeat left center;
+  background-size: 100% 100%;
+  overflow: hidden;
 }
 
 #unity-warning {
